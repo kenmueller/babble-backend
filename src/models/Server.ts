@@ -1,6 +1,8 @@
 import express, { Application } from 'express'
 import { createServer, Server as HTTPServer } from 'http'
 import { Server as SocketIOServer } from 'socket.io'
+import webpush from 'web-push'
+import bodyParser from 'body-parser'
 
 export default class Server {
 	private static readonly PORT = process.env.PORT || '5000'
@@ -19,8 +21,17 @@ export default class Server {
 			cors: { origin: Server.ORIGIN }
 		})
 		
+		this.notifications()
 		this.routes()
 		this.socket()
+	}
+	
+	private readonly notifications = () => {
+		webpush.setVapidDetails(
+			`mailto:${process.env.VAPID_EMAIL!}`,
+			process.env.PUBLIC_VAPID_KEY!,
+			process.env.PRIVATE_VAPID_KEY!
+		)
 	}
 	
 	private readonly routes = () => {
@@ -31,6 +42,17 @@ export default class Server {
 		
 		this.app.get('/', (_req, res) => {
 			res.redirect(301, Server.ORIGIN)
+		})
+		
+		this.app.options('/subscribe', (_req, res) => {
+			res.header('Access-Control-Allow-Methods', 'POST')
+			res.header('Access-Control-Allow-Headers', 'Content-Type')
+			res.send()
+		})
+		
+		this.app.post('/subscribe', bodyParser.json(), ({ body }, res) => {
+			console.log(body)
+			res.send()
 		})
 	}
 	
