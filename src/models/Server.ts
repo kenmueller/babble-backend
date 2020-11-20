@@ -1,8 +1,10 @@
 import express, { Application } from 'express'
 import { createServer, Server as HTTPServer } from 'http'
-import { Server as SocketIOServer } from 'socket.io'
+import { Server as SocketIOServer, Socket } from 'socket.io'
 import webpush from 'web-push'
 import bodyParser from 'body-parser'
+
+import User from './User'
 
 export default class Server {
 	private static readonly PORT = process.env.PORT || '5000'
@@ -51,13 +53,17 @@ export default class Server {
 		})
 		
 		this.app.post('/subscribe', bodyParser.json(), ({ body }, res) => {
-			console.log(body)
+			webpush.sendNotification(body, JSON.stringify({
+				title: 'Hello',
+				body: 'This is a body'
+			}))
+			
 			res.send()
 		})
 	}
 	
 	private readonly socket = () => {
-		this.io.on('connect', () => {})
+		this.io.on('connect', (io: Socket) => new User(io))
 	}
 	
 	readonly listen = () =>
