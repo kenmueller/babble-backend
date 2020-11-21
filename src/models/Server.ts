@@ -2,7 +2,6 @@ import express, { Application } from 'express'
 import { createServer, Server as HTTPServer } from 'http'
 import { Server as SocketIOServer, Socket } from 'socket.io'
 import webpush from 'web-push'
-import bodyParser from 'body-parser'
 
 import User from './User'
 
@@ -44,21 +43,6 @@ export default class Server {
 		
 		this.app.get('/', (_req, res) => {
 			res.redirect(301, Server.ORIGIN)
-		})
-		
-		this.app.options('/subscribe', (_req, res) => {
-			res.header('Access-Control-Allow-Methods', 'POST')
-			res.header('Access-Control-Allow-Headers', 'Content-Type')
-			res.send()
-		})
-		
-		this.app.post('/subscribe', bodyParser.json(), ({ body }, res) => {
-			webpush.sendNotification(body, JSON.stringify({
-				title: 'Hello',
-				body: 'This is a body'
-			}))
-			
-			res.send()
 		})
 	}
 	
