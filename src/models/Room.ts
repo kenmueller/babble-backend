@@ -1,9 +1,9 @@
 import admin from 'firebase-admin'
+import webpush, { PushSubscription } from 'web-push'
 
 import RoomData from './RoomData'
 import User from './User'
 import SocketUserData from './SocketUserData'
-import NotificationPayload from './NotificationPayload'
 
 const firestore = admin.firestore()
 
@@ -25,23 +25,44 @@ export default class Room {
 	
 	private readonly data = async () =>
 		this._data === undefined
-			? this._data = ((await firestore.doc(`rooms/${this.id}`).get()).data() ?? null) as RoomData | null
+			? this._data = (
+				(await firestore.doc(`rooms/${this.id}`).get()).data() ?? null
+			) as RoomData | null
 			: this._data
 	
+	private readonly getPushSubscriptions = async (uid: string) =>
+		((await firestore.doc(`pushSubscriptions/${uid}`).get())
+			.get('subscriptions')?.map(JSON.parse) ?? []) as PushSubscription[]
+	
+	private readonly notifyUser = async (uid: string, payload: string) => {
+		await Promise.all(
+			(await this.getPushSubscriptions(uid))
+				.map(subscription => webpush.sendNotification(subscription, payload))
+		)
+	}
+	
 	readonly addUser = async (user: User) => {
-		const _users = Array.from(this.users)
 		this.users.add(user)
 		
 		const data = await this.data()
+		const thisId = user.data?.id
 		
 		if (!data)
 			return
 		
-		const notification: NotificationPayload = {
+		const notification = JSON.stringify({
 			title: `${user.data?.name ?? 'anonymous'} joined ${data.name}`
-		}
+		})
 		
-		await Promise.all(_users.map(user => user.notify(notification)))
+		await Promise.all(
+			(await firestore.collection(`rooms/${this.id}/subscribers`).get())
+				.docs
+				.map(({ id }) =>
+					id === thisId
+						? Promise.resolve()
+						: this.notifyUser(id, notification)
+				)
+		)
 	}
 	
 	readonly removeUser = (user: User) => {

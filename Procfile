@@ -1,2 +1,2 @@
 web: npm start
-dev: npm run dev
+dev: ts-node src/index.ts

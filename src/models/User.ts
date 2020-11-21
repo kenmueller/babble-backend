@@ -1,10 +1,8 @@
 import admin from 'firebase-admin'
-import webpush, { PushSubscription } from 'web-push'
 import { Socket } from 'socket.io'
 
 import Room from './Room'
 import UserData from './UserData'
-import NotificationPayload from './NotificationPayload'
 import snapshotToUserData from '../utils/snapshotToUserData'
 
 const firestore = admin.firestore()
@@ -47,27 +45,5 @@ export default class User {
 	private readonly leave = () => {
 		this.room.removeUser(this)
 		this.io.to(this.room.id).emit('leave', this.io.id, this.room.userData)
-	}
-	
-	private readonly isSubscribed = async () =>
-		this.data
-			? (await firestore.doc(`rooms/${this.room.id}/subscribers/${this.data.id}`).get()).exists
-			: false
-	
-	private readonly pushSubscriptions = async (): Promise<PushSubscription[]> =>
-		this.data
-			? (await firestore.doc(`pushSubscriptions/${this.data.id}`).get())
-				.get('subscriptions')?.map(JSON.parse) ?? []
-			: []
-	
-	readonly notify = async (payload: NotificationPayload) => {
-		if (!await this.isSubscribed())
-			return
-		
-		const subscriptions = await this.pushSubscriptions()
-		const jsonPayload = JSON.stringify(payload)
-		
-		for (const subscription of subscriptions)
-			webpush.sendNotification(subscription, jsonPayload)
 	}
 }
