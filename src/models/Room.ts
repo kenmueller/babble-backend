@@ -1,10 +1,12 @@
 import admin from 'firebase-admin'
-import webpush, { PushSubscription } from 'web-push'
+import webpush from 'web-push'
 
+import Server from './Server'
 import RoomData from './RoomData'
 import User from './User'
 import SocketUserData from './SocketUserData'
 
+const { FieldValue } = admin.firestore
 const firestore = admin.firestore()
 
 export default class Room {
@@ -30,15 +32,22 @@ export default class Room {
 			) as RoomData | null
 			: this._data
 	
-	private readonly getPushSubscriptions = async (uid: string) =>
-		((await firestore.doc(`pushSubscriptions/${uid}`).get())
-			.get('subscriptions')?.map(JSON.parse) ?? []) as PushSubscription[]
-	
 	private readonly notifyUser = async (uid: string, payload: string) => {
-		await Promise.all(
-			(await this.getPushSubscriptions(uid))
-				.map(subscription => webpush.sendNotification(subscription, payload))
-		)
+		const snapshot = await firestore.doc(`pushSubscriptions/${uid}`).get()
+		const subscriptions: string[] = snapshot.get('subscriptions') ?? []
+		
+		await Promise.all(subscriptions.map(subscription =>
+			webpush
+				.sendNotification(JSON.parse(subscription), payload)
+				.catch(async error => {
+					if (error.statusCode !== 410)
+						return console.error(error)
+					
+					await snapshot.ref.set({
+						subscriptions: FieldValue.arrayRemove(subscription)
+					})
+				})
+		))
 	}
 	
 	readonly addUser = async (user: User) => {
@@ -51,7 +60,9 @@ export default class Room {
 			return
 		
 		const notification = JSON.stringify({
-			title: `${user.data?.name ?? 'anonymous'} joined ${data.name}`
+			title: `${user.data?.name ?? 'anonymous'} joined ${data.name}`,
+			body: 'Click to join',
+			url: `${Server.ORIGIN}/${this.id}`
 		})
 		
 		await Promise.all(

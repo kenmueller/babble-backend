@@ -6,8 +6,8 @@ import webpush from 'web-push'
 import User from './User'
 
 export default class Server {
-	private static readonly PORT = process.env.PORT || '5000'
-	private static readonly ORIGIN = process.env.NODE_ENV === 'production'
+	static readonly PORT = process.env.PORT || '5000'
+	static readonly ORIGIN = process.env.NODE_ENV === 'production'
 		? 'https://babble.vercel.app'
 		: 'http://localhost:3000'
 	
